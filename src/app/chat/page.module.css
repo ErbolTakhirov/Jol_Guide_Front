@@ -1,0 +1,333 @@
+.page {
+  padding-top: var(--header-height);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.chatContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 24px;
+}
+
+/* ─── Messages ─── */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Welcome ─── */
+.welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 0;
+}
+
+.welcomeIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  margin-bottom: 24px;
+  animation: float 4s ease-in-out infinite;
+}
+
+.welcomeTitle {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcomeSubtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: 400px;
+  margin-bottom: 36px;
+}
+
+.quickPrompts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  max-width: 560px;
+  width: 100%;
+}
+
+.quickPrompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.quickPrompt:hover {
+  border-color: var(--border-active);
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.promptEmoji {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+/* ─── Message Bubbles ─── */
+.message {
+  display: flex;
+  gap: 12px;
+  animation: fadeInUp 0.3s var(--ease-spring);
+}
+
+.userMsg {
+  justify-content: flex-end;
+}
+
+.userMsg .msgContent {
+  background: var(--gradient-primary);
+  border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+  max-width: 70%;
+}
+
+.assistantMsg .msgContent {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  max-width: 85%;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgba(99, 102, 241, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--primary-light);
+}
+
+.msgContent {
+  padding: 14px 18px;
+}
+
+.msgText {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ─── Typing Indicator ─── */
+.typing {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-light);
+}
+
+.typing span:nth-child(1) { animation: typing-dot 1.4s infinite; }
+.typing span:nth-child(2) { animation: typing-dot 1.4s infinite 0.2s; }
+.typing span:nth-child(3) { animation: typing-dot 1.4s infinite 0.4s; }
+
+/* ─── Place Cards ─── */
+.placesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.placeCard {
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--duration) var(--ease);
+}
+
+.placeCard:hover {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.placeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.placeCategory {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-light);
+}
+
+.placeRating {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.placeName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.placeLocation {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.placeDesc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.placeTags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.placeTag {
+  padding: 2px 8px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  color: var(--text-accent);
+}
+
+/* ─── Input Area ─── */
+.inputArea {
+  padding: 16px 0 24px;
+  border-top: 1px solid var(--border);
+}
+
+.inputForm {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--duration) var(--ease);
+}
+
+.inputForm:focus-within {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.input {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  padding: 10px 0;
+  resize: none;
+  max-height: 120px;
+  line-height: 1.5;
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.sendBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: all var(--duration) var(--ease);
+  flex-shrink: 0;
+}
+
+.sendActive {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disclaimer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .chatContainer {
+    padding: 0 12px;
+  }
+
+  .quickPrompts {
+    grid-template-columns: 1fr;
+  }
+
+  .welcomeTitle {
+    font-size: 1.5rem;
+  }
+
+  .userMsg .msgContent,
+  .assistantMsg .msgContent {
+    max-width: 90%;
+  }
+
+  .placesGrid {
+    grid-template-columns: 1fr;
+  }
+}
