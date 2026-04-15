@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
 interface Message {
@@ -23,6 +23,18 @@ interface PlaceResult {
   tags?: string[];
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages_count: number;
+  last_message: {
+    role: string;
+    content: string;
+    created_at: string;
+  } | null;
+  updated_at: string;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
 const QUICK_PROMPTS = [
@@ -36,22 +48,41 @@ const QUICK_PROMPTS = [
 
 function ChatContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+    if (autoScrollEnabled && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [autoScrollEnabled]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 100;
+    setAutoScrollEnabled(isAtBottom);
+  };
 
   // Create anonymous session on mount
   useEffect(() => {
@@ -76,13 +107,91 @@ function ChatContent() {
     getToken();
   }, []);
 
-  // Handle initial query from URL
+  // Fetch Sessions list
+  const fetchSessions = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/ai/sessions/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  }, [token]);
+
   useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  // Load a specific session
+  const loadSession = async (id: string) => {
+    if (!token) return;
+    setIsLoadingHistory(true);
+    setIsSidebarOpen(false);
+    
+    try {
+      const res = await fetch(`${API_BASE}/ai/sessions/${id}/messages/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load session');
+      
+      const data = await res.json();
+      data.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      
+      const mappedMessages: Message[] = data.map((m: any) => ({
+        id: m.id.toString(),
+        role: m.role,
+        content: m.content || '',
+        places: m.structured_data?.places || [],
+        loading: false
+      }));
+
+      setMessages(mappedMessages);
+      setSessionId(id);
+      
+      router.replace(`/chat?session=${id}`, { scroll: false });
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsLoadingHistory(false);
+      setAutoScrollEnabled(true);
+    }
+  };
+
+  const startNewChat = () => {
+    setSessionId(null);
+    setMessages([]);
+    router.replace('/chat', { scroll: false });
+    setIsSidebarOpen(false);
+  };
+
+  // Handle initial query or session from URL
+  useEffect(() => {
+    if (!token) return;
+    
+    const sid = searchParams.get('session');
+    if (sid && !sessionId && messages.length === 0) {
+      loadSession(sid);
+      return;
+    }
+
     const q = searchParams.get('q');
-    if (q && token && messages.length === 0) {
+    if (q && messages.length === 0) {
       sendMessage(q);
     }
   }, [searchParams, token]);
+
+  // Sync URL when a new session is created via streaming
+  useEffect(() => {
+    const currentSessionParam = searchParams.get('session');
+    if (sessionId && currentSessionParam !== sessionId) {
+      router.replace(`/chat?session=${sessionId}`, { scroll: false });
+    }
+  }, [sessionId, searchParams, router]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -103,6 +212,7 @@ function ChatContent() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput('');
     setIsStreaming(true);
+    setAutoScrollEnabled(true);
 
     try {
       const headers: Record<string, string> = {
@@ -198,6 +308,7 @@ function ChatContent() {
       );
     } finally {
       setIsStreaming(false);
+      fetchSessions();
     }
   };
 
@@ -215,23 +326,102 @@ function ChatContent() {
 
   // Parse markdown-like content
   const renderContent = (content: string) => {
-    // Try to parse as JSON first
+    let cleanContent = content.trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\n?/, '');
+    }
+    if (cleanContent.endsWith('```')) {
+      cleanContent = cleanContent.replace(/```$/, '');
+    }
+
+    // Try full JSON parse
     try {
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(cleanContent);
       if (parsed.text) {
         return <div className={styles.msgText}>{parsed.text}</div>;
       }
     } catch {}
+
+    // Fallback: extract text during streaming
+    const match = cleanContent.match(/"text"\s*:\s*"([\s\S]*)/);
+    if (match && match[1]) {
+      let extracted = match[1];
+      const nextKeyMatch = extracted.match(/",\s*"(?:itinerary|places)"\s*:/);
+      if (nextKeyMatch && nextKeyMatch.index !== undefined) {
+        extracted = extracted.substring(0, nextKeyMatch.index);
+      } else {
+        if (extracted.endsWith('"') && !extracted.endsWith('\\"')) {
+          extracted = extracted.slice(0, -1);
+        }
+      }
+      const unescaped = extracted
+        .replace(/\\n/g, '\n')
+        .replace(/\\"/g, '"')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\\/g, '\\');
+      return <div className={styles.msgText}>{unescaped}</div>;
+    }
+
+    if (cleanContent.startsWith('{')) {
+      return <div className={styles.msgText}>...</div>;
+    }
 
     return <div className={styles.msgText}>{content}</div>;
   };
 
   return (
     <div className={styles.page}>
-      <div className={styles.chatContainer}>
-        {/* Messages Area */}
-        <div className={styles.messages}>
-          {messages.length === 0 ? (
+      
+      {/* Mobile Sidebar Overlay */}
+      <div 
+        className={`${styles.sidebarOverlay} ${isSidebarOpen ? styles.sidebarOverlayOpen : ''}`} 
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <div className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.sidebarHeader}>
+          <button className={styles.newChatBtn} onClick={startNewChat}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            New Chat
+          </button>
+        </div>
+        <div className={styles.sessionList}>
+          {sessions.map(s => (
+            <button 
+              key={s.id} 
+              className={`${styles.sessionItem} ${s.id === sessionId ? styles.sessionItemActive : ''}`}
+              onClick={() => loadSession(s.id)}
+            >
+              <div className={styles.sessionTitle}>{s.title || 'Travel Chat'}</div>
+              <div className={styles.sessionDate}>
+                {new Date(s.updated_at).toLocaleDateString()}
+              </div>
+            </button>
+          ))}
+          {sessions.length === 0 && (
+            <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>
+              No previous chats
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className={styles.chatMain}>
+        {/* Mobile Hamburger toggle */}
+        <button className={styles.mobileToggle} onClick={() => setIsSidebarOpen(true)}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <div className={styles.chatContainer}>
+          {/* Messages Area */}
+          <div className={styles.messages} ref={messagesContainerRef} onScroll={handleScroll}>
+            {messages.length === 0 ? (
             <div className={styles.welcome}>
               <div className={styles.welcomeIcon}>
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#chatGrad)" strokeWidth="1.5" strokeLinecap="round">
@@ -344,6 +534,7 @@ function ChatContent() {
             AI can make mistakes. Verify important travel info independently.
           </p>
         </div>
+      </div>
       </div>
     </div>
   );
