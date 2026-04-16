@@ -98,6 +98,8 @@
   flex-direction: column;
   position: relative;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .mobileToggle {
@@ -133,6 +135,7 @@
   margin: 0 auto;
   width: 100%;
   padding: 0 24px;
+  min-height: 0;
 }
 
 /* ─── Messages ─── */
@@ -427,6 +430,211 @@
   font-size: 0.75rem;
   color: var(--text-tertiary);
   margin-top: 8px;
+}
+
+/* ─── Markdown Styles ─── */
+.markdownBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.markdownBody p {
+  margin: 0;
+}
+
+.markdownBody ul, .markdownBody ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.markdownBody li {
+  margin-bottom: 4px;
+}
+
+.markdownBody strong {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* ─── Options Grid ─── */
+.optionsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.optionButton {
+  padding: 8px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-full);
+  color: var(--primary-light);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.optionButton:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--primary-light);
+  transform: translateY(-1px);
+}
+
+.optionButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.optionButtonOther {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.optionButtonOther:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.optionButtonOther:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Interactive Wizard ─── */
+.wizardCard {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: fadeInUp 0.4s var(--ease-spring);
+}
+
+.wizardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.wizardHeader h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-light);
+  margin: 0;
+}
+
+.wizardProgress {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.wizardBody {
+  padding: 16px;
+}
+
+.wizardQuestion {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.freeTextContainer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.freeTextInput {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.freeTextInput:focus {
+  outline: none;
+  border-color: var(--primary-light);
+}
+
+.freeTextSubmit {
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: white;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.freeTextSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wizardCompleted {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+}
+
+.wizardCompletedHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #10b981;
+  margin-bottom: 12px;
+}
+
+.wizardCompletedHeader h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.wizardAnswers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wizardAnswerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wizardAnswerRow strong {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.wizardAnswerRow span {
+  font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {

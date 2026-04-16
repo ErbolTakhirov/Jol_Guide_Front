@@ -404,3 +404,8 @@ ul, ol {
     font-size: 1.75rem;
   }
 }
+
+/* Hide global footer in Chat application for fullscreen app feel */
+body:has(.chat-page-wrapper) footer {
+  display: none !important;
+}
