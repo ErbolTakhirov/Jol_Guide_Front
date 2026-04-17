@@ -2,8 +2,27 @@
 
 import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import styles from './page.module.css';
+interface ItineraryItemSchema {
+  time?: string;
+  end_time?: string;
+  place?: PlaceResult;
+  notes?: string;
+}
+
+interface ItineraryDaySchema {
+  day_number: number;
+  title: string;
+  items: ItineraryItemSchema[];
+}
+
+interface ItinerarySchema {
+  title: string;
+  destination: string;
+  days: ItineraryDaySchema[];
+}
 
 interface Message {
   id: string;
@@ -13,16 +32,22 @@ interface Message {
   options?: string[];
   wizard?: WizardSchema;
   wizard_answers?: Record<string, string>;
+  itinerary?: ItinerarySchema;
   loading?: boolean;
 }
 
 interface PlaceResult {
   name: string;
+  slug?: string;
   category: string;
   description: string;
+  address?: string;
   city: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
   rating?: number;
+  reviews_count?: number;
   price_level?: number;
   tags?: string[];
 }
@@ -54,12 +79,12 @@ interface ChatSession {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
 const QUICK_PROMPTS = [
-  { emoji: '🏛️', text: '3 days in Rome on a budget' },
-  { emoji: '🌊', text: 'Beach vacation in Bali for a week' },
-  { emoji: '🏔️', text: 'Adventure trip to Kyrgyzstan' },
-  { emoji: '🍣', text: 'Food tour in Tokyo, 5 days' },
-  { emoji: '💑', text: 'Romantic weekend in Paris' },
-  { emoji: '🎒', text: 'Backpacking in Southeast Asia, 2 weeks' },
+  { emoji: '🏔️', text: 'Приключенческий тур по Кыргызстану на 7 дней' },
+  { emoji: '🏞️', text: 'Треккинг к озеру Ала-Куль из Каракола' },
+  { emoji: '🐴', text: 'Конный поход к Сон-Кулю на 3 дня' },
+  { emoji: '🌊', text: 'Отдых на Иссык-Куле, бюджетный вариант' },
+  { emoji: '🏙️', text: 'Что посмотреть в Бишкеке за 2 дня?' },
+  { emoji: '🦅', text: 'Охота с беркутом и кочевая культура' },
 ];
 
 function InteractiveWizard({ wizard, disabled, answers, onSubmit }: { wizard: WizardSchema, disabled: boolean, answers?: Record<string, string>, onSubmit: (ans: Record<string, string>) => void }) {
@@ -153,6 +178,7 @@ function ChatContent() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSavingTrip, setIsSavingTrip] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -250,6 +276,7 @@ function ChatContent() {
         places: m.structured_data?.places || [],
         options: m.structured_data?.options || [],
         wizard: m.structured_data?.wizard || undefined,
+        itinerary: m.structured_data?.itinerary || undefined,
         loading: false
       }));
 
@@ -342,70 +369,84 @@ function ChatContent() {
       const decoder = new TextDecoder();
       let fullContent = '';
       let places: PlaceResult[] = [];
+      let sseBuffer = '';
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
+          sseBuffer += decoder.decode(value, { stream: true });
 
-          for (const line of lines) {
-            if (line.startsWith('data:')) {
-              try {
-                // Handle both "data: " (with space) and "data:" (without space)
-                const jsonStr = line.startsWith('data: ') ? line.slice(6) : line.slice(5);
-                const data = JSON.parse(jsonStr);
+          // SSE events are separated by double newline
+          const events = sseBuffer.split('\n\n');
+          // Last element may be incomplete — keep it in the buffer
+          sseBuffer = events.pop() || '';
 
-                if (data.content) {
-                  fullContent += data.content;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsg.id
-                        ? { ...m, content: fullContent, loading: false }
-                        : m
-                    )
-                  );
-                }
+          for (const event of events) {
+            const lines = event.split('\n');
+            let dataLine = '';
 
-                if (data.places) {
-                  places = data.places;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsg.id
-                        ? { ...m, places }
-                        : m
-                    )
-                  );
-                }
-
-                if (data.options) {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsg.id
-                        ? { ...m, options: data.options }
-                        : m
-                    )
-                  );
-                }
-
-                if (data.wizard) {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsg.id
-                        ? { ...m, wizard: data.wizard }
-                        : m
-                    )
-                  );
-                }
-
-                if (data.session_id) {
-                  setSessionId(data.session_id);
-                }
-              } catch (parseErr) {
-                console.warn('Failed to parse SSE data:', parseErr, 'line:', line);
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                dataLine = line.slice(6);
+              } else if (line.startsWith('data:')) {
+                dataLine = line.slice(5);
               }
+            }
+
+            if (!dataLine) continue;
+
+            try {
+              const data = JSON.parse(dataLine);
+
+              if (data.content) {
+                fullContent += data.content;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, content: fullContent, loading: false }
+                      : m
+                  )
+                );
+              }
+
+              if (data.places) {
+                places = data.places;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, places }
+                      : m
+                  )
+                );
+              }
+
+              if (data.options) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, options: data.options }
+                      : m
+                  )
+                );
+              }
+
+              if (data.wizard) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, wizard: data.wizard }
+                      : m
+                  )
+                );
+              }
+
+              if (data.session_id) {
+                setSessionId(data.session_id);
+              }
+            } catch (parseErr) {
+              console.warn('Failed to parse SSE data:', parseErr, 'data:', dataLine);
             }
           }
         }
@@ -458,7 +499,65 @@ function ChatContent() {
     }
   };
 
-  // Parse markdown-like content
+  const handleSaveTrip = async (itinerary: ItinerarySchema) => {
+    if (!token) {
+       alert('Пожалуйста, войдите в систему, чтобы сохранить маршрут.');
+       router.push('/login');
+       return;
+    }
+    setIsSavingTrip(true);
+    try {
+      const res = await fetch(`${API_BASE}/trips/import-ai/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ itinerary })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        router.push(`/trips/${data.id}`);
+      } else {
+        throw new Error('Failed to save trip');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при сохранении маршрута');
+    } finally {
+      setIsSavingTrip(false);
+    }
+  };
+
+  // Extract the "text" JSON string value by walking characters and tracking escapes.
+  // Works on both complete and in-progress (streaming) JSON.
+  const extractTextValue = (json: string): string | null => {
+    const marker = json.match(/"text"\s*:\s*"/);
+    if (!marker || marker.index === undefined) return null;
+
+    const start = marker.index + marker[0].length;
+    let result = '';
+
+    for (let i = start; i < json.length; i++) {
+      if (json[i] === '\\' && i + 1 < json.length) {
+        const next = json[i + 1];
+        if (next === 'n') result += '\n';
+        else if (next === 't') result += '\t';
+        else if (next === '"') result += '"';
+        else if (next === '\\') result += '\\';
+        else result += next;
+        i++;
+      } else if (json[i] === '"') {
+        return result;
+      } else {
+        result += json[i];
+      }
+    }
+
+    // String not closed yet — still streaming
+    return result;
+  };
+
   const renderContent = (content: string) => {
     let cleanContent = content.trim();
     if (cleanContent.startsWith('```json')) {
@@ -468,7 +567,7 @@ function ChatContent() {
       cleanContent = cleanContent.replace(/```$/, '');
     }
 
-    // Try full JSON parse
+    // Try full JSON parse first (works once streaming is complete)
     try {
       const parsed = JSON.parse(cleanContent);
       if (parsed.text) {
@@ -480,34 +579,22 @@ function ChatContent() {
       }
     } catch {}
 
-    // Fallback: extract text during streaming
-    const match = cleanContent.match(/"text"\s*:\s*"([\s\S]*)/);
-    if (match && match[1]) {
-      let extracted = match[1];
-      const nextKeyMatch = extracted.match(/",\s*"(?:itinerary|places|options)"\s*:/);
-      if (nextKeyMatch && nextKeyMatch.index !== undefined) {
-        extracted = extracted.substring(0, nextKeyMatch.index);
-      } else {
-        if (extracted.endsWith('"') && !extracted.endsWith('\\"')) {
-          extracted = extracted.slice(0, -1);
-        }
-      }
-      const unescaped = extracted
-        .replace(/\\n/g, '\n')
-        .replace(/\\"/g, '"')
-        .replace(/\\t/g, '\t')
-        .replace(/\\\\/g, '\\');
+    // Fallback: extract "text" value while streaming is in progress
+    const extracted = extractTextValue(cleanContent);
+    if (extracted) {
       return (
         <div className={`${styles.msgText} ${styles.markdownBody}`}>
-          <ReactMarkdown>{unescaped}</ReactMarkdown>
+          <ReactMarkdown>{extracted}</ReactMarkdown>
         </div>
       );
     }
 
+    // JSON is still arriving but "text" key hasn't appeared yet
     if (cleanContent.startsWith('{')) {
       return <div className={styles.msgText}>...</div>;
     }
 
+    // Plain text (non-JSON response)
     return (
       <div className={`${styles.msgText} ${styles.markdownBody}`}>
         <ReactMarkdown>{content}</ReactMarkdown>
@@ -580,9 +667,9 @@ function ChatContent() {
                   </defs>
                 </svg>
               </div>
-              <h2 className={styles.welcomeTitle}>How can I help you travel?</h2>
+              <h2 className={styles.welcomeTitle}>Откройте Кыргызстан вместе с Jol Guide</h2>
               <p className={styles.welcomeSubtitle}>
-                Ask me anything about destinations, itineraries, restaurants, hotels, or activities.
+                Спросите о маршрутах, достопримечательностях, отелях, ресторанах и активностях по всему Кыргызстану.
               </p>
               <div className={styles.quickPrompts}>
                 {QUICK_PROMPTS.map((p, i) => (
@@ -658,26 +745,87 @@ function ChatContent() {
                     {/* Place cards */}
                     {msg.places && Array.isArray(msg.places) && msg.places.length > 0 && (
                       <div className={styles.placesGrid}>
-                        {msg.places.map((place, i) => (
-                          <div key={i} className={styles.placeCard}>
-                            <div className={styles.placeHeader}>
-                              <span className={styles.placeCategory}>{place.category}</span>
-                              {place.rating && (
-                                <span className={styles.placeRating}>★ {place.rating}</span>
+                        {msg.places.map((place, i) => {
+                          const card = (
+                            <div key={i} className={`${styles.placeCard} ${place.slug ? styles.placeCardClickable : ''}`}>
+                              <div className={styles.placeHeader}>
+                                <span className={styles.placeCategory}>{place.category}</span>
+                                <div className={styles.placeHeaderRight}>
+                                  {place.price_level != null && place.price_level > 0 && (
+                                    <span className={styles.placePrice}>{'$'.repeat(place.price_level)}</span>
+                                  )}
+                                  {place.rating && (
+                                    <span className={styles.placeRating}>★ {place.rating}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <h4 className={styles.placeName}>{place.name}</h4>
+                              <p className={styles.placeLocation}>
+                                {place.address || `${place.city}, ${place.country}`}
+                              </p>
+                              <p className={styles.placeDesc}>{place.description}</p>
+                              {place.reviews_count != null && place.reviews_count > 0 && (
+                                <p className={styles.placeReviews}>{place.reviews_count} reviews</p>
+                              )}
+                              {place.tags && (
+                                <div className={styles.placeTags}>
+                                  {place.tags.slice(0, 4).map((t) => (
+                                    <span key={t} className={styles.placeTag}>{t}</span>
+                                  ))}
+                                </div>
                               )}
                             </div>
-                            <h4 className={styles.placeName}>{place.name}</h4>
-                            <p className={styles.placeLocation}>{place.city}, {place.country}</p>
-                            <p className={styles.placeDesc}>{place.description}</p>
-                            {place.tags && (
-                              <div className={styles.placeTags}>
-                                {place.tags.slice(0, 3).map((t) => (
-                                  <span key={t} className={styles.placeTag}>{t}</span>
-                                ))}
-                              </div>
-                            )}
+                          );
+                          return place.slug ? (
+                            <Link key={i} href={`/place/${place.slug}`} className={styles.placeCardLink}>
+                              {card}
+                            </Link>
+                          ) : card;
+                        })}
+                      </div>
+                    )}
+
+                    {/* Itinerary Display */}
+                    {msg.itinerary && (
+                      <div className={styles.itineraryCard}>
+                        <div className={styles.itineraryHeader}>
+                          <div>
+                            <h4>{msg.itinerary.title}</h4>
+                            <span className={styles.itineraryDest}>{msg.itinerary.destination}</span>
                           </div>
-                        ))}
+                        </div>
+                        <div className={styles.itineraryBody}>
+                          {msg.itinerary.days?.map(day => (
+                            <div key={day.day_number} className={styles.itineraryDay}>
+                              <div className={styles.itineraryDayTitle}>
+                                День {day.day_number}: {day.title}
+                              </div>
+                              {day.items.map((item, idx) => (
+                                <div key={idx} className={styles.itineraryItem}>
+                                  <div className={styles.itineraryTime}>
+                                    {item.time || ''} {item.end_time ? `- ${item.end_time}` : ''}
+                                  </div>
+                                  <div className={styles.itineraryDetails}>
+                                    <strong>{item.place?.name || 'Активность'}</strong>
+                                    {item.notes && <p>{item.notes}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          <button 
+                            className={styles.saveTripBtn} 
+                            onClick={() => handleSaveTrip(msg.itinerary!)}
+                            disabled={isSavingTrip}
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                              <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            {isSavingTrip ? 'Сохранение...' : 'Сохранить тур в Мои Поездки'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -694,7 +842,7 @@ function ChatContent() {
             <textarea
               ref={inputRef}
               className={styles.input}
-              placeholder="Ask about your next trip..."
+              placeholder="Спросите о путешествии по Кыргызстану..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -712,7 +860,7 @@ function ChatContent() {
             </button>
           </form>
           <p className={styles.disclaimer}>
-            AI can make mistakes. Verify important travel info independently.
+            Рекомендации основаны на реальных данных. Уточняйте детали перед бронированием.
           </p>
         </div>
       </div>

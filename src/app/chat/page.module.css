@@ -365,6 +365,40 @@
   color: var(--text-accent);
 }
 
+.placeCardLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.placeCardClickable {
+  cursor: pointer;
+}
+
+.placeCardClickable:hover {
+  border-color: var(--primary-light);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.placeHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.placePrice {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.placeReviews {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
 /* ─── Input Area ─── */
 .inputArea {
   padding: 16px 0 24px;
@@ -635,6 +669,106 @@
 .wizardAnswerRow span {
   font-size: 0.9rem;
   color: var(--text-primary);
+}
+
+/* ─── AI Itinerary ─── */
+.itineraryCard {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: fadeInUp 0.4s var(--ease-spring);
+}
+
+.itineraryHeader {
+  padding: 16px;
+  background: rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itineraryHeader h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary-light);
+}
+.itineraryDest {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.itineraryBody {
+  padding: 16px;
+}
+
+.itineraryDay {
+  margin-bottom: 20px;
+}
+
+.itineraryDay:last-child {
+  margin-bottom: 0;
+}
+
+.itineraryDayTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 6px;
+}
+
+.itineraryItem {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.itineraryTime {
+  min-width: 50px;
+  font-weight: 500;
+  color: var(--primary-light);
+}
+
+.itineraryDetails {
+  flex: 1;
+}
+
+.itineraryDetails strong {
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.saveTripBtn {
+  width: 100%;
+  padding: 12px;
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.saveTripBtn:hover {
+  opacity: 0.9;
+}
+
+.saveTripBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
