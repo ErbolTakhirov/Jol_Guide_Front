@@ -98,6 +98,16 @@ export default function RegisterPage() {
         <p className={styles.footer}>
           Already have an account? <Link href="/login" className={styles.link}>Sign in</Link>
         </p>
+
+        <div className={styles.divider}></div>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+            Want to offer tours and ear money?
+          </p>
+          <Link href="/become-guide" className="btn btn-outline" style={{ display: 'block', padding: '10px', fontSize: '0.9rem', color: 'var(--text-accent)', border: '1px solid var(--text-accent)', borderRadius: 'var(--radius)', textDecoration: 'none' }}>
+            Зарегистрироваться как гид
+          </Link>
+        </div>
       </div>
     </div>
   );

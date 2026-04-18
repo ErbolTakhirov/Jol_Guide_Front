@@ -30,6 +30,7 @@ interface PlaceDetail {
   google_maps_url: string | null;
   types: string[];
   price_level: number | null;
+  description?: string;
 }
 
 interface TripOption {
@@ -65,13 +66,45 @@ export default function PlaceDetailPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/places/google/${placeId}/`, { headers });
+      let res;
+      // Google Place IDs almost always start with 'ChI'
+      if (placeId.startsWith('ChI')) {
+        res = await fetch(`${API_BASE}/places/google/${placeId}/`, { headers });
+      } else {
+        // Otherwise assume it's a slug for a local database place
+        res = await fetch(`${API_BASE}/places/${placeId}/`, { headers });
+      }
+
       if (!res.ok) {
         if (res.status === 404) throw new Error('Место не найдено');
         throw new Error(`Ошибка загрузки (${res.status})`);
       }
-      const data: PlaceDetail = await res.json();
-      setPlace(data);
+      const data = await res.json();
+      
+      // Adapt local place data format to match Google place details if needed
+      if (!placeId.startsWith('ChI')) {
+         setPlace({
+           place_id: data.slug,
+           name: data.name,
+           rating: data.rating,
+           formatted_address: data.address || `${data.city || ''}, ${data.country || ''}`.replace(/^, | , $/g, ''),
+           formatted_phone_number: data.formatted_phone_number || null,
+           opening_hours: data.opening_hours || null,
+           website: data.website || null,
+           photos: Array.isArray(data.photos) && data.photos.length > 0 ? data.photos : [],
+           reviews: Array.isArray(data.reviews) ? data.reviews : [],
+           coordinates: { 
+             lat: data.latitude ? parseFloat(data.latitude) : 42.8746, 
+             lng: data.longitude ? parseFloat(data.longitude) : 74.5698 
+           },
+           google_maps_url: null,
+           types: data.tags || [],
+           price_level: data.price_level,
+           description: data.description,
+         });
+      } else {
+         setPlace(data as PlaceDetail);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {
@@ -294,6 +327,18 @@ export default function PlaceDetailPage() {
             Добавить в поездку
           </button>
         </div>
+
+        {/* Description Section */}
+        {place.description && (
+          <div className={styles.descriptionSection}>
+            <h3 className={styles.sectionTitle}>Описание</h3>
+            <div className={styles.descriptionText}>
+              {place.description.split('\n').map((paragraph, idx) => (
+                <p key={idx} style={{ marginBottom: '10px' }}>{paragraph}</p>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Content Grid: Map + Reviews */}
         <div className={styles.contentGrid}>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { TourismMap } from '@/components/map/TourismMap';
 import { PlaceChip } from '@/components/ai-chat/PlaceChip';
+import { ServiceChip } from '@/components/ai-chat/ServiceChip';
 import styles from './page.module.css';
 interface ItineraryItemSchema {
   time?: string;
@@ -35,7 +36,21 @@ interface Message {
   wizard?: WizardSchema;
   wizard_answers?: Record<string, string>;
   itinerary?: ItinerarySchema;
+  services?: ServiceResult[];
   loading?: boolean;
+}
+
+interface ServiceResult {
+  id: string | number;
+  title: string;
+  service_type: string;
+  price: number;
+  currency: string;
+  duration_hours: number;
+  rating: number;
+  guide_name: string;
+  guide_avatar?: string;
+  photo_url?: string;
 }
 
 interface PlaceResult {
@@ -483,6 +498,16 @@ function ChatContent() {
                 );
               }
 
+              if (data.services) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, services: data.services }
+                      : m
+                  )
+                );
+              }
+
               if (data.options) {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -629,53 +654,102 @@ function ChatContent() {
     return result;
   };
 
-  const parseMessageWithPlaces = (text: string, places: PlaceResult[] = []) => {
-    if (!places || places.length === 0) {
-      return <ReactMarkdown>{text}</ReactMarkdown>;
+  const parseMessageWithEntities = (text: string, places: PlaceResult[] = [], services: ServiceResult[] = []) => {
+    const pattern = /\[([^\]]+)\]\((service|place):([^)]+)\)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      
+      const displayName = match[1];
+      const type = match[2];
+      const id = match[3];
+      
+      if (type === 'service') {
+        const svc = services?.find(s => s.id.toString() === id);
+        parts.push(
+          <ServiceChip 
+            key={`svc-${id}-${match.index}`}
+            id={id}
+            displayName={displayName}
+            guideName={svc?.guide_name}
+            price={svc?.price}
+            currency={svc?.currency}
+            rating={svc?.rating}
+            duration={svc?.duration_hours}
+          />
+        );
+      } else if (type === 'place') {
+        const plc = places?.find(p => p.place_id === id || p.google_place_id === id);
+        parts.push(
+          <PlaceChip 
+            key={`plc-${id}-${match.index}`}
+            place={plc || { name: displayName, place_id: id } as any}
+            displayName={displayName}
+          />
+        );
+      }
+      
+      lastIndex = pattern.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
     }
 
-    // Sort places by name length (longest first) to avoid partial matches
-    const sortedPlaces = [...places].filter(p => p.name).sort((a, b) => b.name.length - a.name.length);
-    let elements: React.ReactNode[] = [text];
+    // Fallback for old formatting without markdown links
+    if (parts.length === 1 && typeof parts[0] === 'string' && places?.length > 0) {
+      const sortedPlaces = [...places].filter(p => p.name).sort((a, b) => b.name.length - a.name.length);
+      let elements: React.ReactNode[] = [text];
 
-    sortedPlaces.forEach(place => {
-      const newElements: React.ReactNode[] = [];
-      elements.forEach(el => {
-        if (typeof el === 'string') {
-          // Both Russian and English names might be present. Split by English name first.
-          // AI writes: "Площадь Ала-Тоо (Ala-Too Square)"
-          // The exact name in `place.name` is what Google returned.
-          const parts = el.split(new RegExp(`(${place.name})`, 'gi'));
-          parts.forEach(part => {
-             if (part.toLowerCase() === place.name.toLowerCase()) {
-                newElements.push(
-                  <PlaceChip 
-                    key={(place.place_id || place.name) + Math.random()} 
-                    place={{
-                      place_id: place.place_id || '',
-                      name: place.name || '',
-                      lat: place.latitude || 0,
-                      lng: place.longitude || 0,
-                      rating: place.rating,
-                      address: place.address
-                    }} 
-                    displayName={part} 
-                  />
-                );
-             } else if (part) {
-                newElements.push(part);
-             }
-          });
-        } else {
-          newElements.push(el);
-        }
+      sortedPlaces.forEach(place => {
+        const newElements: React.ReactNode[] = [];
+        elements.forEach(el => {
+          if (typeof el === 'string') {
+            const elParts = el.split(new RegExp(`(${place.name})`, 'gi'));
+            elParts.forEach(part => {
+               if (part.toLowerCase() === place.name.toLowerCase()) {
+                  newElements.push(
+                    <PlaceChip 
+                      key={(place.place_id || place.name) + Math.random()} 
+                      place={{
+                        place_id: place.place_id || '',
+                        name: place.name || '',
+                        lat: place.latitude || 0,
+                        lng: place.longitude || 0,
+                        rating: place.rating,
+                        address: place.address
+                      }} 
+                      displayName={part} 
+                    />
+                  );
+               } else if (part) {
+                  newElements.push(part);
+               }
+            });
+          } else {
+            newElements.push(el);
+          }
+        });
+        elements = newElements;
       });
-      elements = newElements;
-    });
+      
+      return (
+        <>
+          {elements.map((el, i) => 
+            typeof el === 'string' ? <ReactMarkdown key={i}>{el}</ReactMarkdown> : el
+          )}
+        </>
+      );
+    }
 
     return (
       <>
-        {elements.map((el, i) => 
+        {parts.map((el, i) => 
           typeof el === 'string' ? <ReactMarkdown key={i}>{el}</ReactMarkdown> : el
         )}
       </>
@@ -695,10 +769,20 @@ function ChatContent() {
     // Try full JSON parse first
     try {
       const parsed = JSON.parse(cleanContent);
+      
+      // If the backend failed to send event: itinerary due to parsing issues, 
+      // but frontend succeeded in parsing full JSON, update the msg object on the fly!
+      if (parsed.itinerary && !msg.itinerary) {
+        msg.itinerary = parsed.itinerary;
+      }
+      if (parsed.places && !msg.places?.length) {
+        msg.places = parsed.places;
+      }
+
       if (parsed.text) {
         return (
           <div className={`${styles.msgText} ${styles.markdownBody}`}>
-            {parseMessageWithPlaces(parsed.text, msg.places)}
+            {parseMessageWithEntities(parsed.text, msg.places, msg.services)}
           </div>
         );
       }
@@ -709,7 +793,7 @@ function ChatContent() {
     if (extracted) {
       return (
         <div className={`${styles.msgText} ${styles.markdownBody}`}>
-          {parseMessageWithPlaces(extracted, msg.places)}
+          {parseMessageWithEntities(extracted, msg.places, msg.services)}
         </div>
       );
     }
@@ -722,7 +806,7 @@ function ChatContent() {
     // Plain text (non-JSON response)
     return (
       <div className={`${styles.msgText} ${styles.markdownBody}`}>
-        {parseMessageWithPlaces(content, msg.places)}
+        {parseMessageWithEntities(content, msg.places, msg.services)}
       </div>
     );
   };
@@ -902,7 +986,7 @@ function ChatContent() {
                             </div>
                           );
                           return place.slug ? (
-                            <Link key={i} href={`/place/${place.slug}`} className={styles.placeCardLink}>
+                            <Link key={i} href={`/places/${place.slug}`} target="_blank" className={styles.placeCardLink}>
                               {card}
                             </Link>
                           ) : card;

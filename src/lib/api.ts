@@ -56,6 +56,7 @@ export interface User {
   travel_persona: string;
   is_creator: boolean;
   locale: string;
+  role: string;
   created_at: string;
 }
 

@@ -1,0 +1,194 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: 100vh;
+}
+
+.loader {
+  text-align: center;
+  padding: 50px;
+  font-size: 1.2rem;
+  color: #6b7280;
+}
+
+.header {
+  margin-bottom: 30px;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 15px;
+  padding: 0;
+}
+
+.backButton:hover {
+  text-decoration: underline;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 15px;
+  line-height: 1.2;
+}
+
+.metaRow {
+  display: flex;
+  gap: 20px;
+  color: #4b5563;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.gallery {
+  display: flex;
+  gap: 15px;
+  height: 400px;
+  margin-bottom: 40px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.photoWrapper {
+  flex: 1;
+  position: relative;
+}
+
+.photoWrapper:first-child {
+  flex: 2;
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mainContent {
+  display: flex;
+  gap: 40px;
+}
+
+.leftColumn {
+  flex: 2;
+}
+
+.rightColumn {
+  flex: 1;
+}
+
+.guideSection {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 30px;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.guideSection h3 {
+  margin: 0 0 5px 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.guideSection p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.section {
+  margin-bottom: 30px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: #111827;
+}
+
+.description {
+  color: #4b5563;
+  line-height: 1.7;
+  font-size: 1.05rem;
+  white-space: pre-line;
+}
+
+.detailsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.detailsList li {
+  margin-bottom: 15px;
+  font-size: 1.05rem;
+  color: #4b5563;
+}
+
+.bookingCard {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 100px;
+}
+
+.priceHeader {
+  margin-bottom: 25px;
+}
+
+.price {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.priceType {
+  font-size: 1rem;
+  color: #6b7280;
+  margin-left: 5px;
+}
+
+.bookButton {
+  width: 100%;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 15px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 15px;
+}
+
+.bookButton:hover {
+  background: #2563eb;
+}
+
+.policyText {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+}
