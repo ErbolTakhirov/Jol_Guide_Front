@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
+import { TourismMap } from '@/components/map/TourismMap';
+import { PlaceChip } from '@/components/ai-chat/PlaceChip';
 import styles from './page.module.css';
 interface ItineraryItemSchema {
   time?: string;
@@ -50,6 +52,8 @@ interface PlaceResult {
   reviews_count?: number;
   price_level?: number;
   tags?: string[];
+  place_id?: string;
+  google_place_id?: string;
 }
 
 interface WizardStep {
@@ -180,6 +184,9 @@ function ChatContent() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSavingTrip, setIsSavingTrip] = useState(false);
 
+  // Map State
+  const [mapPlaces, setMapPlaces] = useState<any[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -194,6 +201,46 @@ function ChatContent() {
 
   useEffect(() => {
     scrollToBottom();
+    
+    // Extract map places from the latest messages that have places or itinerary
+    let newMapPlaces: any[] = [];
+    messages.forEach(msg => {
+       if (msg.places && Array.isArray(msg.places)) {
+           const validPlaces = msg.places.filter(p => p.latitude && p.longitude).map(p => ({
+               lat: p.latitude as number,
+               lng: p.longitude as number,
+               name: p.name,
+               category: p.category,
+               rating: p.rating,
+               address: p.address || p.city
+           }));
+           // Replace places with the latest interaction
+           if (validPlaces.length > 0) {
+               newMapPlaces = validPlaces;
+           }
+       }
+       if (msg.itinerary && msg.itinerary.days) {
+           const itineraryPlaces: any[] = [];
+           msg.itinerary.days.forEach(day => {
+               day.items.forEach(item => {
+                   if (item.place?.latitude && item.place?.longitude) {
+                       itineraryPlaces.push({
+                           lat: item.place.latitude,
+                           lng: item.place.longitude,
+                           name: item.place.name,
+                           category: item.place.category,
+                           rating: item.place.rating,
+                           address: item.place.address
+                       });
+                   }
+               });
+           });
+           if (itineraryPlaces.length > 0) {
+               newMapPlaces = itineraryPlaces;
+           }
+       }
+    });
+    setMapPlaces(newMapPlaces);
   }, [messages, scrollToBottom]);
 
   const handleScroll = () => {
@@ -204,14 +251,28 @@ function ChatContent() {
     setAutoScrollEnabled(isAtBottom);
   };
 
-  // Create anonymous session on mount
+  // Create anonymous session on mount or use real auth token
   useEffect(() => {
     const getToken = async () => {
       try {
-        const storedToken = localStorage.getItem('travelai_anon_token');
-        if (storedToken) {
-          setToken(storedToken);
-          return;
+        let currentToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        if (!currentToken) {
+          currentToken = localStorage.getItem('travelai_anon_token');
+        }
+
+        if (currentToken) {
+          setToken(currentToken);
+          // Briefly check if it's valid
+          const res = await fetch(`${API_BASE}/ai/sessions/`, {
+            headers: { Authorization: `Bearer ${currentToken}` }
+          });
+          if (res.status !== 401) {
+            return;
+          }
+          // If 401, token is definitely expired. Clear the non-functional anon token.
+          localStorage.removeItem('travelai_anon_token');
+          // If the access_token causes 401, it should normally be refreshed by AuthContext.
+          // For chat, we fallback to a new anonymous token here so they aren't blocked.
         }
 
         const res = await fetch(`${API_BASE}/auth/anonymous/`, {
@@ -445,6 +506,16 @@ function ChatContent() {
               if (data.session_id) {
                 setSessionId(data.session_id);
               }
+
+              if (data.itinerary) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, itinerary: data.itinerary }
+                      : m
+                  )
+                );
+              }
             } catch (parseErr) {
               console.warn('Failed to parse SSE data:', parseErr, 'data:', dataLine);
             }
@@ -558,7 +629,61 @@ function ChatContent() {
     return result;
   };
 
-  const renderContent = (content: string) => {
+  const parseMessageWithPlaces = (text: string, places: PlaceResult[] = []) => {
+    if (!places || places.length === 0) {
+      return <ReactMarkdown>{text}</ReactMarkdown>;
+    }
+
+    // Sort places by name length (longest first) to avoid partial matches
+    const sortedPlaces = [...places].filter(p => p.name).sort((a, b) => b.name.length - a.name.length);
+    let elements: React.ReactNode[] = [text];
+
+    sortedPlaces.forEach(place => {
+      const newElements: React.ReactNode[] = [];
+      elements.forEach(el => {
+        if (typeof el === 'string') {
+          // Both Russian and English names might be present. Split by English name first.
+          // AI writes: "Площадь Ала-Тоо (Ala-Too Square)"
+          // The exact name in `place.name` is what Google returned.
+          const parts = el.split(new RegExp(`(${place.name})`, 'gi'));
+          parts.forEach(part => {
+             if (part.toLowerCase() === place.name.toLowerCase()) {
+                newElements.push(
+                  <PlaceChip 
+                    key={(place.place_id || place.name) + Math.random()} 
+                    place={{
+                      place_id: place.place_id || '',
+                      name: place.name || '',
+                      lat: place.latitude || 0,
+                      lng: place.longitude || 0,
+                      rating: place.rating,
+                      address: place.address
+                    }} 
+                    displayName={part} 
+                  />
+                );
+             } else if (part) {
+                newElements.push(part);
+             }
+          });
+        } else {
+          newElements.push(el);
+        }
+      });
+      elements = newElements;
+    });
+
+    return (
+      <>
+        {elements.map((el, i) => 
+          typeof el === 'string' ? <ReactMarkdown key={i}>{el}</ReactMarkdown> : el
+        )}
+      </>
+    );
+  };
+
+  const renderContent = (msg: Message) => {
+    let content = msg.content || '';
     let cleanContent = content.trim();
     if (cleanContent.startsWith('```json')) {
       cleanContent = cleanContent.replace(/^```json\n?/, '');
@@ -567,29 +692,29 @@ function ChatContent() {
       cleanContent = cleanContent.replace(/```$/, '');
     }
 
-    // Try full JSON parse first (works once streaming is complete)
+    // Try full JSON parse first
     try {
       const parsed = JSON.parse(cleanContent);
       if (parsed.text) {
         return (
           <div className={`${styles.msgText} ${styles.markdownBody}`}>
-            <ReactMarkdown>{parsed.text}</ReactMarkdown>
+            {parseMessageWithPlaces(parsed.text, msg.places)}
           </div>
         );
       }
     } catch {}
 
-    // Fallback: extract "text" value while streaming is in progress
+    // Fallback: extract "text" value while streaming
     const extracted = extractTextValue(cleanContent);
     if (extracted) {
       return (
         <div className={`${styles.msgText} ${styles.markdownBody}`}>
-          <ReactMarkdown>{extracted}</ReactMarkdown>
+          {parseMessageWithPlaces(extracted, msg.places)}
         </div>
       );
     }
 
-    // JSON is still arriving but "text" key hasn't appeared yet
+    // JSON is still arriving
     if (cleanContent.startsWith('{')) {
       return <div className={styles.msgText}>...</div>;
     }
@@ -597,7 +722,7 @@ function ChatContent() {
     // Plain text (non-JSON response)
     return (
       <div className={`${styles.msgText} ${styles.markdownBody}`}>
-        <ReactMarkdown>{content}</ReactMarkdown>
+        {parseMessageWithPlaces(content, msg.places)}
       </div>
     );
   };
@@ -643,15 +768,15 @@ function ChatContent() {
       </div>
 
       {/* Main Chat Area */}
-      <div className={styles.chatMain}>
-        {/* Mobile Hamburger toggle */}
-        <button className={styles.mobileToggle} onClick={() => setIsSidebarOpen(true)}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-        </button>
-
+      <div className={styles.chatMainRight}>
         <div className={styles.chatContainer}>
+          {/* Mobile Hamburger toggle */}
+          <button className={styles.mobileToggle} onClick={() => setIsSidebarOpen(true)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+
           {/* Messages Area */}
           <div className={styles.messages} ref={messagesContainerRef} onScroll={handleScroll}>
             {messages.length === 0 ? (
@@ -705,7 +830,7 @@ function ChatContent() {
                       </div>
                     ) : (
                       <>
-                        {renderContent(msg.content)}
+                        {renderContent(msg)}
                         
                         {/* Interactive Wizard */}
                         {msg.wizard && (
@@ -864,6 +989,19 @@ function ChatContent() {
           </p>
         </div>
       </div>
+      
+      {/* Map Panel (Right side if desktop, toggled if mobile or simply hidden if no places) */}
+      {mapPlaces.length > 0 && (
+         <div className={styles.mapPanel}>
+           <div className={styles.mapHeader}>
+              <h3 className={styles.mapTitle}>🗺️ Карта мест</h3>
+           </div>
+           <div className={styles.mapContainer}>
+              <TourismMap places={mapPlaces} height="100%" />
+           </div>
+         </div>
+      )}
+      
       </div>
     </div>
   );

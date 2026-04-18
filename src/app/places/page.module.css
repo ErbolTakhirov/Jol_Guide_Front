@@ -1,0 +1,196 @@
+.page {
+  padding-top: var(--header-height);
+  padding-bottom: 40px;
+  min-height: 100vh;
+}
+
+.header {
+  margin-bottom: 30px;
+  margin-top: 20px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+/* Search Section */
+.searchSection {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.searchBar {
+  display: flex;
+  gap: 12px;
+}
+
+.textInput {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.textInput:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.autocompleteWrapper p {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.errorAlert {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Main Content Layout */
+.mainContent {
+  display: flex;
+  gap: 24px;
+  height: calc(100vh - 350px);
+  min-height: 500px;
+}
+
+/* List View */
+.placesList {
+  flex: 1;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.placesList h3 {
+  margin: 0 0 8px 0;
+}
+
+.emptyState, .loadingState {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+}
+
+.placeCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.placeCard:hover {
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.selectedCard {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.placeImage {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+
+.placeInfo {
+  padding: 16px;
+}
+
+.placeInfo h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+}
+
+.address {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  margin: 0 0 12px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  align-items: center;
+}
+
+.closed {
+  color: #ef4444;
+  font-weight: 500;
+  font-size: 0.8rem;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Map View */
+.mapContainer {
+  flex: 1;
+  position: relative;
+}
+
+.mapSticky {
+  position: sticky;
+  top: var(--header-height);
+  width: 100%;
+  height: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .mainContent {
+    flex-direction: column-reverse;
+    height: auto;
+  }
+  
+  .placesList {
+    max-width: 100%;
+    max-height: 500px;
+  }
+  
+  .mapContainer {
+    height: 400px;
+    flex: none;
+  }
+}

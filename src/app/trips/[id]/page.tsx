@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { api, type Trip } from '@/lib/api';
+import { TourismMap } from '@/components/map/TourismMap';
 import styles from './page.module.css';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -38,6 +39,12 @@ export default function TripDetailPage() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Maps Integration State
+  const [mapPlaces, setMapPlaces] = useState<any[]>([]);
+  const [routePolyline, setRoutePolyline] = useState<string | undefined>();
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [routeStats, setRouteStats] = useState<{duration: string, distance: string} | null>(null);
 
   useEffect(() => {
     if (!id || !isAuthenticated) return;
@@ -53,6 +60,24 @@ export default function TripDetailPage() {
       .then((data) => {
         setTrip(data);
         setError(null);
+        
+        // Extract places for map
+        const places: any[] = [];
+        data.days?.forEach(day => {
+            day.items?.forEach(item => {
+                if (item.place?.latitude && item.place?.longitude) {
+                    places.push({
+                        lat: Number(item.place.latitude),
+                        lng: Number(item.place.longitude),
+                        name: item.place.name,
+                        category: item.place.category,
+                        rating: item.place.rating,
+                        address: item.place.address
+                    });
+                }
+            });
+        });
+        setMapPlaces(places);
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Failed to load trip.';
@@ -89,6 +114,29 @@ export default function TripDetailPage() {
     } catch {
       alert('Failed to duplicate trip.');
     }
+  };
+  
+  const handleBuildRoute = async () => {
+      if (!trip || !isAuthenticated) return;
+      const token = getToken();
+      if (!token) return;
+      
+      setLoadingRoute(true);
+      try {
+          const routeData = await api.getTripRoute(token, trip.id, 'driving');
+          if (routeData.polyline) {
+              setRoutePolyline(routeData.polyline);
+              setRouteStats({
+                  duration: routeData.duration_text,
+                  distance: routeData.distance_text
+              });
+          }
+      } catch (err) {
+          console.error("Failed to build route", err);
+          alert("Не удалось построить маршрут. Возможно, места находятся слишком далеко друг от друга.");
+      } finally {
+          setLoadingRoute(false);
+      }
   };
 
   if (loading) {
@@ -155,6 +203,34 @@ export default function TripDetailPage() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0 0 0.25rem' }}>AI Query:</p>
           <p style={{ margin: 0, fontStyle: 'italic' }}>&ldquo;{trip.ai_query}&rdquo;</p>
         </div>
+      )}
+      
+      {/* Google Maps Integration */}
+      {mapPlaces.length > 0 && (
+          <div style={{ marginBottom: '2rem', background: 'var(--bg-card)', padding: '1rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}>📍 Карта маршрута</h3>
+                <div>
+                    {routeStats && (
+                        <span style={{ marginRight: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                            🚗 {routeStats.duration} ({routeStats.distance})
+                        </span>
+                    )}
+                    <button 
+                        className="btn btn-primary btn-sm" 
+                        onClick={handleBuildRoute}
+                        disabled={loadingRoute}
+                    >
+                        {loadingRoute ? 'Строим...' : '🗺️ Построить маршрут'}
+                    </button>
+                </div>
+              </div>
+              <TourismMap 
+                  places={mapPlaces} 
+                  routePolyline={routePolyline} 
+                  height="400px" 
+              />
+          </div>
       )}
 
       {/* Days */}

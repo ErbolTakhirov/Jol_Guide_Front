@@ -1,0 +1,10 @@
+.infoWindow {
+    max-width: 200px;
+    font-family: inherit;
+    color: #333;
+}
+.infoWindow strong {
+    font-size: 14px;
+    display: block;
+    margin-bottom: 4px;
+}

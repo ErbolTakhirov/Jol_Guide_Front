@@ -243,4 +243,29 @@ export const api = {
 
   getSessionMessages: (token: string, sessionId: string) =>
     apiFetch<ChatMessage[]>(`/ai/sessions/${sessionId}/messages/`, { token }),
+
+  // Google Maps
+  googleSearchPlaces: (token: string, query: string, lat?: number, lng?: number, radius?: number) => {
+    const params = new URLSearchParams();
+    if (query) params.append('query', query);
+    if (lat) params.append('lat', lat.toString());
+    if (lng) params.append('lng', lng.toString());
+    if (radius) params.append('radius', radius.toString());
+    return apiFetch<{results: any[], count: number}>(`/places/google-search/?${params.toString()}`, { token });
+  },
+
+  googlePlaceDetails: (token: string, placeId: string) =>
+    apiFetch<any>(`/places/google-details/${placeId}/`, { token }),
+
+  geocodeAddress: (token: string, address: string) =>
+    apiFetch<{latitude: number, longitude: number, formatted_address: string}>(
+      '/places/geocode/',
+      { method: 'POST', token, body: JSON.stringify({ address }) }
+    ),
+
+  getTripRoute: (token: string, tripId: string, mode: string = 'driving') =>
+    apiFetch<{polyline: string, duration_text: string, distance_text: string, waypoints: any[]}>(
+      `/trips/${tripId}/route/`,
+      { method: 'POST', token, body: JSON.stringify({ mode }) }
+    ),
 };
